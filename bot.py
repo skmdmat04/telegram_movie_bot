@@ -467,20 +467,27 @@ async def run_webhook(app: Application) -> None:
     site = web.TCPSite(runner, "0.0.0.0", PORT)
 
     async with app:
-        await app.bot.set_webhook(
-            url=f"{WEBHOOK_URL.rstrip('/')}/{BOT_TOKEN}",
-            secret_token=WEBHOOK_SECRET,
-        )
-        await app.start()
-        await site.start()
-        log.info("Webhook server listening on port %s", PORT)
+        # `async with app` only calls Application.initialize(), which explicitly
+        # does NOT run post_init/post_shutdown — those are normally invoked by
+        # PTB's own run_polling()/run_webhook(), which this custom server bypasses.
+        await post_init(app)
         try:
-            await asyncio.Event().wait()  # run forever, until cancelled
-        except asyncio.CancelledError:
-            pass
+            await app.bot.set_webhook(
+                url=f"{WEBHOOK_URL.rstrip('/')}/{BOT_TOKEN}",
+                secret_token=WEBHOOK_SECRET,
+            )
+            await app.start()
+            await site.start()
+            log.info("Webhook server listening on port %s", PORT)
+            try:
+                await asyncio.Event().wait()  # run forever, until cancelled
+            except asyncio.CancelledError:
+                pass
+            finally:
+                await runner.cleanup()
+                await app.stop()
         finally:
-            await runner.cleanup()
-            await app.stop()
+            await post_shutdown(app)
 
 
 def main() -> None:
