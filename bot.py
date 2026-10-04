@@ -64,7 +64,12 @@ BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 # for a cloud deployment. Leave unset to run in polling mode for local dev.
 WEBHOOK_URL = os.environ.get("WEBHOOK_URL")
 PORT = int(os.environ.get("PORT", "8080"))
-WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET") or secrets.token_urlsafe(32)
+
+# Telegram requires the secret token to match ^[A-Za-z0-9_-]{1,256}$ — some
+# hosting platforms' auto-generated env values (e.g. Render's generateValue)
+# use a wider charset, so strip anything outside that set rather than fail.
+_raw_secret = re.sub(r"[^A-Za-z0-9_-]", "", os.environ.get("WEBHOOK_SECRET") or "")
+WEBHOOK_SECRET = _raw_secret or secrets.token_urlsafe(32)
 
 SEARCH_URL = "https://archive.org/advancedsearch.php"
 METADATA_URL = "https://archive.org/metadata/{identifier}"
